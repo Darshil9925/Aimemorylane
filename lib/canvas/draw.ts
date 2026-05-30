@@ -6,7 +6,7 @@ function loadImg(src: string): Promise<HTMLImageElement> {
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.onload = () => resolve(img)
-    img.onerror = reject
+    img.onerror = () => reject(new Error(`Failed to load image: ${src.slice(0, 60)}`))
     img.src = src
   })
 }
