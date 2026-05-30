@@ -5,7 +5,7 @@ import { generateId } from "@/lib/utils"
 import type { UploadedPhoto } from "@/types"
 
 export function useUpload() {
-  const { addPhotos, setUploading, setProgress, photos } = useUploadStore()
+  const { addPhotos, setUploading, setProgress, photos, isUploading, uploadProgress } = useUploadStore()
 
   const processFiles = useCallback(async (files: File[]) => {
     const valid = files.filter((f) => {
@@ -36,7 +36,7 @@ export function useUpload() {
     setUploading(false)
   }, [addPhotos, setUploading, setProgress])
 
-  return { processFiles, photos }
+  return { processFiles, photos, isUploading, uploadProgress }
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
