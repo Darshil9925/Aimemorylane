@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
-import { POLAROID_PRESETS } from "@/lib/canvas/filters"
+import { POLAROID_PRESETS, type PolaroidPreset } from "@/lib/canvas/filters"
 import { drawPolaroid } from "@/lib/canvas/draw"
 import { cn } from "@/lib/utils"
 
@@ -11,36 +11,87 @@ interface PolaroidConfigProps {
   onBack: () => void
 }
 
+function FrameCard({
+  preset,
+  photo,
+  selected,
+  onClick,
+}: {
+  preset: PolaroidPreset
+  photo?: { previewUrl: string }
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-xl overflow-hidden transition-all ring-offset-2 p-0 text-left",
+        selected ? "ring-2 ring-gray-900 scale-105 shadow-lg" : "hover:scale-102 hover:shadow-md opacity-75 hover:opacity-100"
+      )}
+      style={{ background: preset.frameColor, boxShadow: `0 4px 16px ${preset.frameShadow}` }}
+    >
+      {/* Mini polaroid */}
+      <div className="p-1.5 pb-3">
+        <div className="rounded-sm overflow-hidden mb-2" style={{ aspectRatio: "1", background: "#ddd" }}>
+          {photo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo.previewUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              style={{ filter: preset.filter }}
+            />
+          )}
+        </div>
+        <p className="text-center leading-none" style={{ fontSize: 6, color: preset.captionColor, fontFamily: "Georgia, serif" }}>
+          {preset.name}
+        </p>
+      </div>
+      {selected && (
+        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center">
+          <span className="text-white text-[8px]">✓</span>
+        </div>
+      )}
+    </button>
+  )
+}
+
 export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
   const { photos } = useUploadStore()
-  const [effectId, setEffectId] = useState("film-grain")
+  const [presetId, setPresetId] = useState("classic-white")
   const [captions, setCaptions] = useState<Record<string, string>>({})
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState(0)
 
-  const effect = POLAROID_PRESETS.find((e) => e.id === effectId)!
+  const preset = POLAROID_PRESETS.find((p) => p.id === presetId)!
 
   const handleGenerate = async () => {
     setIsGenerating(true)
-    const urls: string[] = []
-    for (const photo of photos) {
-      const canvas = document.createElement("canvas")
-      await drawPolaroid(canvas, photo, effect.filter, captions[photo.id] ?? "")
-      urls.push(canvas.toDataURL("image/png"))
+    try {
+      const urls: string[] = []
+      for (const photo of photos) {
+        const canvas = document.createElement("canvas")
+        await drawPolaroid(canvas, photo, preset, captions[photo.id] ?? "")
+        urls.push(canvas.toDataURL("image/png"))
+      }
+      setGeneratedUrls(urls)
+    } finally {
+      setIsGenerating(false)
     }
-    setGeneratedUrls(urls)
-    setIsGenerating(false)
   }
 
   const handleDownloadAll = () => {
     generatedUrls.forEach((url, i) => {
       const a = document.createElement("a")
       a.href = url
-      a.download = `polaroid-${effectId}-${i + 1}.png`
+      a.download = `polaroid-${presetId}-${i + 1}.png`
       a.click()
     })
   }
+
+  const previewPhoto = photos[0]
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -51,105 +102,116 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
         <h1 className="text-xl font-bold text-gray-900">Polaroids</h1>
       </div>
 
-      {/* Effect selector */}
+      {/* Frame / effect grid */}
       <section className="space-y-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Effect</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {POLAROID_PRESETS.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => { setEffectId(e.id); setGeneratedUrls([]) }}
-              className={cn(
-                "p-3 rounded-2xl border text-left transition-all",
-                effectId === e.id
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-200 hover:border-gray-400"
-              )}
-            >
-              <p className="text-sm font-medium">{e.name}</p>
-              <p className={cn("text-xs mt-0.5", effectId === e.id ? "text-gray-400" : "text-gray-400")}>
-                {e.description}
-              </p>
-            </button>
+        <div className="flex items-baseline justify-between">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Frame & Effect</p>
+          <p className="text-xs text-gray-300">{POLAROID_PRESETS.length} styles</p>
+        </div>
+        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 relative">
+          {POLAROID_PRESETS.map((p) => (
+            <FrameCard
+              key={p.id}
+              preset={p}
+              photo={previewPhoto}
+              selected={presetId === p.id}
+              onClick={() => { setPresetId(p.id); setGeneratedUrls([]) }}
+            />
           ))}
         </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={presetId}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-center"
+          >
+            <p className="text-sm font-semibold text-gray-700">{preset.name}</p>
+            <p className="text-xs text-gray-400">{preset.description}</p>
+          </motion.div>
+        </AnimatePresence>
       </section>
 
-      {/* Live preview + captions */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-          Preview & captions ({photos.length} photo{photos.length !== 1 ? "s" : ""})
-        </p>
+      {/* Live preview + per-photo captions */}
+      {photos.length > 0 && (
+        <section className="space-y-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+            Captions ({photos.length} photo{photos.length !== 1 ? "s" : ""})
+          </p>
 
-        {photos.length > 0 && (
-          <>
-            {/* Photo tabs */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {photos.map((photo, i) => (
-                <button
-                  key={photo.id}
-                  onClick={() => setSelectedIdx(i)}
-                  className={cn(
-                    "flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 transition-all",
-                    selectedIdx === i ? "border-gray-900" : "border-transparent opacity-60"
-                  )}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photo.previewUrl} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-
-            {/* Active polaroid preview */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${selectedIdx}-${effectId}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex justify-center"
+          {/* Photo thumb row */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {photos.map((photo, i) => (
+              <button
+                key={photo.id}
+                onClick={() => setSelectedIdx(i)}
+                className={cn(
+                  "flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 transition-all",
+                  selectedIdx === i ? "border-gray-900" : "border-transparent opacity-60"
+                )}
               >
-                <div className="bg-white rounded-lg shadow-xl p-3 w-52" style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.14)" }}>
-                  <div className="aspect-square overflow-hidden rounded">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photos[selectedIdx]?.previewUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ filter: effect.filter }}
-                    />
-                  </div>
-                  <div className="pt-3 pb-1 text-center">
-                    <p className="text-xs text-gray-500 italic min-h-[16px]">
-                      {captions[photos[selectedIdx]?.id] || ""}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.previewUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
 
-            {/* Caption input */}
-            <div>
-              <label className="text-sm text-gray-600 mb-1 block">
-                Caption for photo {selectedIdx + 1}
-              </label>
-              <input
-                type="text"
-                value={captions[photos[selectedIdx]?.id] ?? ""}
-                onChange={(e) => {
-                  const id = photos[selectedIdx]?.id
-                  if (id) setCaptions((c) => ({ ...c, [id]: e.target.value }))
-                  setGeneratedUrls([])
+          {/* Live polaroid preview */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${selectedIdx}-${presetId}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex justify-center"
+            >
+              <div
+                className="rounded shadow-xl overflow-hidden"
+                style={{
+                  background: preset.frameColor,
+                  padding: "12px 12px 40px 12px",
+                  width: 190,
+                  boxShadow: `0 12px 40px ${preset.frameShadow}`,
                 }}
-                placeholder="still not over this day…"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 transition-colors"
-              />
-            </div>
-          </>
-        )}
-      </section>
+              >
+                <div className="aspect-square overflow-hidden rounded-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photos[selectedIdx]?.previewUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ filter: preset.filter }}
+                  />
+                </div>
+                <p
+                  className="text-center mt-2 italic text-xs min-h-[16px]"
+                  style={{ color: preset.captionColor, fontFamily: "Georgia, serif" }}
+                >
+                  {captions[photos[selectedIdx]?.id] || ""}
+                </p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
-      {/* Generated results or generate button */}
+          <div>
+            <label className="text-sm text-gray-600 mb-1 block">Caption for photo {selectedIdx + 1}</label>
+            <input
+              type="text"
+              value={captions[photos[selectedIdx]?.id] ?? ""}
+              onChange={(e) => {
+                const id = photos[selectedIdx]?.id
+                if (id) setCaptions((c) => ({ ...c, [id]: e.target.value }))
+                setGeneratedUrls([])
+              }}
+              placeholder="still not over this day…"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 transition-colors"
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Output */}
       {generatedUrls.length > 0 ? (
         <section className="space-y-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -183,7 +245,7 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
           className="w-full py-3.5 rounded-2xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           {isGenerating ? (
-            <><span className="animate-spin">⏳</span> Generating {photos.length} polaroid{photos.length !== 1 ? "s" : ""}…</>
+            <><span className="animate-spin inline-block">⏳</span> Generating {photos.length} polaroid{photos.length !== 1 ? "s" : ""}…</>
           ) : (
             `📷 Generate ${photos.length} Polaroid${photos.length !== 1 ? "s" : ""}`
           )}
