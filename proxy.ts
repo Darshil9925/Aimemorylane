@@ -2,10 +2,11 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { newGuestToken, GUEST_COOKIE, verifyGuestToken } from "@/lib/auth/guest"
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next()
 
-  // Issue a guest token if the user doesn't have one yet
+  // Issue a signed guest token cookie on every first visit.
+  // HttpOnly + Secure — invisible to JavaScript, cannot be forged from the browser.
   const existing = request.cookies.get(GUEST_COOKIE.name)?.value
   const valid = existing ? verifyGuestToken(existing) : null
 
@@ -26,7 +27,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except static assets, images, and NextAuth internals
+  // Run on all routes except Next.js internals and static assets
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.svg).*)",
   ],
