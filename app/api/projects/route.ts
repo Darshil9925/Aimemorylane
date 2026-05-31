@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createProject, createAssets, getUserProjects, upsertUser } from "@/lib/db/queries"
+import { uploadImages, assetPath } from "@/lib/storage"
 
 /** GET /api/projects — list current user's projects */
 export async function GET() {
@@ -55,13 +56,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ saved: false })
     }
 
-    // Save assets if provided (data URLs for now, S3 URLs in Phase 5C)
+    // Upload assets to cloud storage, then save URLs to DB
     if (assetUrls?.length > 0) {
-      const assetRecords = assetUrls.map((url: string, i: number) => ({
+      const filenames = assetUrls.map((_: string, i: number) =>
+        `${mode}-${templateId ?? "default"}-${i + 1}.png`
+      )
+
+      // Upload to Vercel Blob or S3 (parallel)
+      let storedUrls: string[]
+      try {
+        storedUrls = await uploadImages(
+          assetUrls.map((dataUrl: string, i: number) => ({
+            dataUrl,
+            path: assetPath(user.id, project.id, filenames[i]),
+          }))
+        )
+      } catch (uploadErr) {
+        console.warn("[projects/create] Storage upload failed, falling back to data URLs:", uploadErr)
+        // Fallback: store data URLs directly (works but larger DB rows)
+        storedUrls = assetUrls
+      }
+
+      const assetRecords = storedUrls.map((url: string, i: number) => ({
         projectId: project.id,
         type: "png" as const,
-        url,
-        filename: `${mode}-${templateId ?? "default"}-${i + 1}.png`,
+        url: url || assetUrls[i], // if upload returned empty string, keep data URL
+        filename: filenames[i],
       }))
       await createAssets(assetRecords)
     }
