@@ -6,6 +6,7 @@ import { useUploadStore } from "@/store/upload-store"
 import { DISPOSABLE_PRESETS } from "@/lib/canvas/filters"
 import { drawDisposablePhoto } from "@/lib/canvas/draw"
 import { useCredits } from "@/hooks/use-credits"
+import { useProjectSave } from "@/hooks/use-project-save"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { cn } from "@/lib/utils"
 
@@ -19,6 +20,7 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const { consumeCredit, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
+  const { saveProject } = useProjectSave()
 
   const preset = DISPOSABLE_PRESETS.find((p) => p.id === presetId)!
 
@@ -34,6 +36,13 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
     }
     setGeneratedUrls(urls)
     setIsGenerating(false)
+    saveProject({
+      mode: "disposable",
+      title: `Disposable · ${preset.name}`,
+      templateId: preset.id,
+      photoCount: photos.length,
+      assets: urls,
+    })
   }
 
   const [mobile, setMobile] = useState(false)

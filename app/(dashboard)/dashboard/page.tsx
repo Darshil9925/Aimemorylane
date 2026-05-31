@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { EmptyState } from "@/components/shared/empty-state"
+import { ProjectList } from "@/components/dashboard/project-list"
 
 const modes = [
   {
@@ -51,9 +51,6 @@ const modes = [
 ]
 
 export default function DashboardPage() {
-  // No projects yet — replace with real data in Phase 5
-  const projects: null[] = []
-
   return (
     <div className="space-y-10">
       {/* Greeting */}
@@ -97,13 +94,7 @@ export default function DashboardPage() {
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
           Recent memories
         </h2>
-        {projects.length === 0 ? (
-          <EmptyState
-            icon="📭"
-            title="No memories yet"
-            description="Upload some photos and create your first memory above."
-          />
-        ) : null}
+        <ProjectList />
       </section>
     </div>
   )

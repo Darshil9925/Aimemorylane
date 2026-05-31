@@ -7,6 +7,7 @@ import { PHOTOBOOTH_PRESETS, type TemplatePreset } from "@/lib/canvas/filters"
 import { drawPhotoboothStrip } from "@/lib/canvas/draw"
 import { useAICaption } from "@/hooks/use-ai"
 import { useCredits } from "@/hooks/use-credits"
+import { useProjectSave } from "@/hooks/use-project-save"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { cn } from "@/lib/utils"
 
@@ -84,6 +85,7 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const { generateFromPhoto, isLoading: isAILoading } = useAICaption()
   const { consumeCredit, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
+  const { saveProject } = useProjectSave()
 
   const template = PHOTOBOOTH_PRESETS.find((t) => t.id === templateId)!
   const displayPhotos = photos.slice(0, 4)
@@ -96,7 +98,19 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
     try {
       const canvas = document.createElement("canvas")
       await drawPhotoboothStrip(canvas, displayPhotos, template, caption, dateStamp)
-      setPreviewUrl(canvas.toDataURL("image/png"))
+      const dataUrl = canvas.toDataURL("image/png")
+      setPreviewUrl(dataUrl)
+
+      // Auto-save to database (non-blocking, won't fail the UX)
+      saveProject({
+        mode: "photobooth",
+        title: caption || `Photobooth · ${template.name}`,
+        caption,
+        dateStamp,
+        templateId: template.id,
+        photoCount: displayPhotos.length,
+        assets: [dataUrl],
+      })
     } finally {
       setIsGenerating(false)
     }

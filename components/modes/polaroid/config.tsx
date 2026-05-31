@@ -7,6 +7,7 @@ import { POLAROID_PRESETS, type PolaroidPreset } from "@/lib/canvas/filters"
 import { drawPolaroid } from "@/lib/canvas/draw"
 import { useAIBulkCaptions } from "@/hooks/use-ai"
 import { useCredits } from "@/hooks/use-credits"
+import { useProjectSave } from "@/hooks/use-project-save"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { cn } from "@/lib/utils"
 
@@ -69,6 +70,7 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
   const [selectedIdx, setSelectedIdx] = useState(0)
   const { generateForPhotos, isLoading: isAILoading, progress: aiProgress } = useAIBulkCaptions()
   const { consumeCredit, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
+  const { saveProject } = useProjectSave()
 
   const preset = POLAROID_PRESETS.find((p) => p.id === presetId)!
 
@@ -84,6 +86,13 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
         urls.push(canvas.toDataURL("image/png"))
       }
       setGeneratedUrls(urls)
+      saveProject({
+        mode: "polaroid",
+        title: `Polaroids · ${preset.name}`,
+        templateId: preset.id,
+        photoCount: photos.length,
+        assets: urls,
+      })
     } finally {
       setIsGenerating(false)
     }
