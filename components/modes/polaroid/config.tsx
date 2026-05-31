@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { POLAROID_PRESETS, type PolaroidPreset } from "@/lib/canvas/filters"
@@ -84,15 +84,23 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
     }
   }
 
-  const handleDownloadAll = async () => {
-    const { downloadAsZip } = await import("@/lib/utils/download")
-    await downloadAsZip(
-      generatedUrls.map((url, i) => ({
-        dataUrl: url,
-        filename: `polaroid-${presetId}-${i + 1}.png`,
-      })),
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    import("@/lib/utils/download").then(({ isMobile }) => setMobile(isMobile()))
+  }, [])
+
+  const handleSaveAll = async () => {
+    const { saveAllPhotos } = await import("@/lib/utils/download")
+    await saveAllPhotos(
+      generatedUrls.map((url, i) => ({ dataUrl: url, filename: `polaroid-${presetId}-${i + 1}.png` })),
+      "Your Polaroids",
       `polaroids-${presetId}-${Date.now()}.zip`
     )
+  }
+
+  const handleSaveOne = async (url: string, index: number) => {
+    const { saveSinglePhoto } = await import("@/lib/utils/download")
+    await saveSinglePhoto(url, `polaroid-${presetId}-${index + 1}.png`)
   }
 
   const previewPhoto = photos[0]
@@ -238,21 +246,42 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
       {/* Output */}
       {generatedUrls.length > 0 ? (
         <section className="space-y-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-            Your polaroids ({generatedUrls.length})
-          </p>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Your polaroids ({generatedUrls.length})
+            </p>
+            {mobile && (
+              <p className="text-xs text-gray-400">tap a photo to save individually</p>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {generatedUrls.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={url} alt={`Polaroid ${i + 1}`} className="rounded-xl shadow-md w-full" />
+              <div key={i} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Polaroid ${i + 1}`} className="rounded-xl shadow-md w-full" />
+                <button
+                  onClick={() => handleSaveOne(url, i)}
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity active:opacity-100"
+                  title={`Save polaroid ${i + 1}`}
+                >
+                  ↓
+                </button>
+                {/* Always-visible save button on mobile */}
+                <button
+                  onClick={() => handleSaveOne(url, i)}
+                  className="sm:hidden absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-sm flex items-center justify-center"
+                >
+                  ↓
+                </button>
+              </div>
             ))}
           </div>
           <div className="flex gap-3">
             <button
-              onClick={handleDownloadAll}
+              onClick={handleSaveAll}
               className="flex-1 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
             >
-              ↓ Download All as ZIP ({generatedUrls.length} photos)
+              {mobile ? `📤 Share All / Save to Photos` : `↓ Download All as ZIP`} ({generatedUrls.length})
             </button>
             <button
               onClick={() => setGeneratedUrls([])}
