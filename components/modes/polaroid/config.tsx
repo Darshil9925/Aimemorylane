@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { POLAROID_PRESETS, type PolaroidPreset } from "@/lib/canvas/filters"
 import { drawPolaroid } from "@/lib/canvas/draw"
+import { useAIBulkCaptions } from "@/hooks/use-ai"
 import { cn } from "@/lib/utils"
 
 interface PolaroidConfigProps {
@@ -64,6 +65,7 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState(0)
+  const { generateForPhotos, isLoading: isAILoading, progress: aiProgress } = useAIBulkCaptions()
 
   const preset = POLAROID_PRESETS.find((p) => p.id === presetId)!
 
@@ -193,6 +195,26 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
               </div>
             </motion.div>
           </AnimatePresence>
+
+          {/* AI bulk captions */}
+          <button
+            onClick={async () => {
+              const results = await generateForPhotos(photos)
+              if (Object.keys(results).length > 0) {
+                setCaptions((prev) => ({
+                  ...prev,
+                  ...Object.fromEntries(Object.entries(results).map(([id, c]) => [id, c.genZ])),
+                }))
+                setGeneratedUrls([])
+              }
+            }}
+            disabled={isAILoading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-600 text-sm font-medium hover:bg-violet-100 transition-colors disabled:opacity-50"
+          >
+            {isAILoading
+              ? <><span className="animate-spin inline-block">⏳</span> Analysing… {aiProgress}%</>
+              : "✨ AI caption all photos"}
+          </button>
 
           <div>
             <label className="text-sm text-gray-600 mb-1 block">Caption for photo {selectedIdx + 1}</label>
