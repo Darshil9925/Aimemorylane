@@ -31,13 +31,20 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
     setIsGenerating(false)
   }
 
-  const handleDownloadAll = () => {
-    generatedUrls.forEach((url, i) => {
+  const handleDownloadAll = async () => {
+    for (let i = 0; i < generatedUrls.length; i++) {
       const a = document.createElement("a")
-      a.href = url
+      a.href = generatedUrls[i]
       a.download = `disposable-${presetId}-${i + 1}.png`
+      a.style.display = "none"
+      document.body.appendChild(a)
       a.click()
-    })
+      document.body.removeChild(a)
+      // Browsers block simultaneous programmatic downloads — stagger by 300ms
+      if (i < generatedUrls.length - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 300))
+      }
+    }
   }
 
   return (
