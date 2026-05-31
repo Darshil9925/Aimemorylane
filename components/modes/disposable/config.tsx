@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { DISPOSABLE_PRESETS } from "@/lib/canvas/filters"
 import { drawDisposablePhoto } from "@/lib/canvas/draw"
+import { useCredits } from "@/hooks/use-credits"
+import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { cn } from "@/lib/utils"
 
 interface DisposableConfigProps {
@@ -16,10 +18,13 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
   const [presetId, setPresetId] = useState("kodak")
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
+  const { consumeCredit, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
 
   const preset = DISPOSABLE_PRESETS.find((p) => p.id === presetId)!
 
   const handleGenerate = async () => {
+    const allowed = await consumeCredit()
+    if (!allowed) return
     setIsGenerating(true)
     const urls: string[] = []
     for (const photo of photos) {
@@ -173,6 +178,7 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
           )}
         </button>
       )}
+      <UpgradeModal open={showUpgrade} onClose={closeUpgrade} resetAt={upgradeResetAt} />
     </div>
   )
 }

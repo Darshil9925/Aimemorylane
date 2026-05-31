@@ -6,6 +6,8 @@ import { useUploadStore } from "@/store/upload-store"
 import { PHOTOBOOTH_PRESETS, type TemplatePreset } from "@/lib/canvas/filters"
 import { drawPhotoboothStrip } from "@/lib/canvas/draw"
 import { useAICaption } from "@/hooks/use-ai"
+import { useCredits } from "@/hooks/use-credits"
+import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { cn } from "@/lib/utils"
 
 interface PhotoboothConfigProps {
@@ -81,12 +83,15 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const { generateFromPhoto, isLoading: isAILoading } = useAICaption()
+  const { consumeCredit, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
 
   const template = PHOTOBOOTH_PRESETS.find((t) => t.id === templateId)!
   const displayPhotos = photos.slice(0, 4)
 
   const handleGenerate = async () => {
     if (!displayPhotos.length) return
+    const allowed = await consumeCredit()
+    if (!allowed) return
     setIsGenerating(true)
     try {
       const canvas = document.createElement("canvas")
@@ -281,6 +286,7 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
           )}
         </button>
       )}
+      <UpgradeModal open={showUpgrade} onClose={closeUpgrade} resetAt={upgradeResetAt} />
     </div>
   )
 }

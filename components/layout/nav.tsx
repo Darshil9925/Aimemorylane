@@ -4,6 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useCredits } from "@/hooks/use-credits"
+import { UpgradeModal } from "@/components/ui/upgrade-modal"
 
 const navItems = [
   { href: "/dashboard", label: "Home", emoji: "🏠" },
@@ -16,6 +18,7 @@ const navItems = [
 
 export function DashboardNav() {
   const pathname = usePathname()
+  const { remaining, total, isPremium, isLoading, showUpgrade, upgradeResetAt, closeUpgrade } = useCredits()
 
   return (
     <>
@@ -55,13 +58,30 @@ export function DashboardNav() {
         </nav>
 
         {/* Credits badge */}
-        <div className="mx-2 p-3 rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-100">
-          <p className="text-xs text-gray-500 mb-1">Free plan</p>
-          <p className="text-sm font-semibold text-gray-800">3 / 3 memories left today</p>
-          <Link href="/pricing" className="text-xs text-violet-500 font-medium mt-1 block hover:underline">
-            Upgrade to Premium →
-          </Link>
-        </div>
+        {isPremium ? (
+          <div className="mx-2 p-3 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100">
+            <p className="text-xs text-amber-600 font-semibold">✦ Premium</p>
+            <p className="text-sm font-semibold text-gray-800 mt-0.5">Unlimited generations</p>
+          </div>
+        ) : (
+          <div className="mx-2 p-3 rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-100">
+            <p className="text-xs text-gray-500 mb-1">Free plan</p>
+            {isLoading ? (
+              <p className="text-sm font-semibold text-gray-400">Loading…</p>
+            ) : remaining === 0 ? (
+              <p className="text-sm font-semibold text-red-500">0 / {total} left today</p>
+            ) : (
+              <p className="text-sm font-semibold text-gray-800">
+                {remaining} / {total} left today
+              </p>
+            )}
+            <Link href="/pricing" className="text-xs text-violet-500 font-medium mt-1 block hover:underline">
+              Upgrade to Premium →
+            </Link>
+          </div>
+        )}
+
+        <UpgradeModal open={showUpgrade} onClose={closeUpgrade} resetAt={upgradeResetAt} />
       </aside>
 
       {/* Mobile bottom nav */}
