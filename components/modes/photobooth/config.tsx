@@ -9,6 +9,7 @@ import { useAICaption } from "@/hooks/use-ai"
 import { useCredits } from "@/hooks/use-credits"
 import { useProjectSave } from "@/hooks/use-project-save"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
+import { SocialExport } from "@/components/shared/social-export"
 import { cn } from "@/lib/utils"
 
 interface PhotoboothConfigProps {
@@ -286,6 +287,7 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
               Re-generate
             </button>
           </div>
+          <SocialExport assetDataUrl={previewUrl} title={caption || "memory booth ✦"} />
         </section>
       ) : (
         <button
