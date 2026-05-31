@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getProjectWithAssets } from "@/lib/db/queries"
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const project = await getProjectWithAssets(params.id)
+    const project = await getProjectWithAssets(id)
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
