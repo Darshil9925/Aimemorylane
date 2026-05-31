@@ -117,12 +117,10 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!previewUrl) return
-    const a = document.createElement("a")
-    a.href = previewUrl
-    a.download = `photobooth-${templateId}-${Date.now()}.png`
-    a.click()
+    const { saveSinglePhoto } = await import("@/lib/utils/download")
+    await saveSinglePhoto(previewUrl, `photobooth-${templateId}-${Date.now()}.png`)
   }
 
   return (

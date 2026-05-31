@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { SCRAPBOOK_STYLES, drawScrapbookPage, type ScrapbookStyle } from "@/lib/canvas/scrapbook"
@@ -54,13 +54,24 @@ export function ScrapbookConfig({ onBack }: ScrapbookConfigProps) {
     }
   }
 
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    import("@/lib/utils/download").then(({ isMobile }) => setMobile(isMobile()))
+  }, [])
+
   const handleDownload = async () => {
-    const { saveAllPhotos } = await import("@/lib/utils/download")
-    await saveAllPhotos(
-      generatedPages.map((url, i) => ({ dataUrl: url, filename: `scrapbook-${styleId}-page-${i + 1}.png` })),
-      "Your Scrapbook",
-      `scrapbook-${styleId}-${Date.now()}.zip`
-    )
+    if (generatedPages.length === 1) {
+      // Single page → direct download, not ZIP
+      const { saveSinglePhoto } = await import("@/lib/utils/download")
+      await saveSinglePhoto(generatedPages[0], `scrapbook-${styleId}.png`)
+    } else {
+      const { saveAllPhotos } = await import("@/lib/utils/download")
+      await saveAllPhotos(
+        generatedPages.map((url, i) => ({ dataUrl: url, filename: `scrapbook-${styleId}-page-${i + 1}.png` })),
+        "Your Scrapbook",
+        `scrapbook-${styleId}-${Date.now()}.zip`
+      )
+    }
   }
 
   return (
@@ -143,7 +154,7 @@ export function ScrapbookConfig({ onBack }: ScrapbookConfigProps) {
                 onClick={handleDownload}
                 className="flex-1 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
               >
-                ↓ Download Scrapbook ({generatedPages.length} pages)
+                {mobile ? "📤 Save Scrapbook" : "↓ Download Scrapbook"} ({generatedPages.length} {generatedPages.length === 1 ? "page" : "pages"})
               </button>
               <button
                 onClick={() => setGeneratedPages([])}

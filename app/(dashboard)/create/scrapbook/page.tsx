@@ -11,9 +11,9 @@ export default function CreateScrapbookPage() {
     <UploadStep
       emoji="📒"
       title="Create a Scrapbook"
-      description="Upload 10–50 photos. AI arranges them into handcrafted scrapbook pages."
+      description="Upload 1–50 photos. We'll arrange them into handcrafted scrapbook pages."
       maxPhotos={50}
-      minPhotos={10}
+      minPhotos={1}
       onContinue={() => setStep("config")}
     />
   ) : (
