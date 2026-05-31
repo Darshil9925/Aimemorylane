@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { POLAROID_PRESETS, type PolaroidPreset } from "@/lib/canvas/filters"
 import { drawPolaroid } from "@/lib/canvas/draw"
+import { useAIBulkCaptions } from "@/hooks/use-ai"
 import { cn } from "@/lib/utils"
 
 interface PolaroidConfigProps {
@@ -64,6 +65,7 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState(0)
+  const { generateForPhotos, isLoading: isAILoading, progress: aiProgress } = useAIBulkCaptions()
 
   const preset = POLAROID_PRESETS.find((p) => p.id === presetId)!
 
@@ -82,13 +84,23 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
     }
   }
 
-  const handleDownloadAll = () => {
-    generatedUrls.forEach((url, i) => {
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `polaroid-${presetId}-${i + 1}.png`
-      a.click()
-    })
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    import("@/lib/utils/download").then(({ isMobile }) => setMobile(isMobile()))
+  }, [])
+
+  const handleSaveAll = async () => {
+    const { saveAllPhotos } = await import("@/lib/utils/download")
+    await saveAllPhotos(
+      generatedUrls.map((url, i) => ({ dataUrl: url, filename: `polaroid-${presetId}-${i + 1}.png` })),
+      "Your Polaroids",
+      `polaroids-${presetId}-${Date.now()}.zip`
+    )
+  }
+
+  const handleSaveOne = async (url: string, index: number) => {
+    const { saveSinglePhoto } = await import("@/lib/utils/download")
+    await saveSinglePhoto(url, `polaroid-${presetId}-${index + 1}.png`)
   }
 
   const previewPhoto = photos[0]
@@ -194,6 +206,26 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
             </motion.div>
           </AnimatePresence>
 
+          {/* AI bulk captions */}
+          <button
+            onClick={async () => {
+              const results = await generateForPhotos(photos)
+              if (Object.keys(results).length > 0) {
+                setCaptions((prev) => ({
+                  ...prev,
+                  ...Object.fromEntries(Object.entries(results).map(([id, c]) => [id, c.genZ])),
+                }))
+                setGeneratedUrls([])
+              }
+            }}
+            disabled={isAILoading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-600 text-sm font-medium hover:bg-violet-100 transition-colors disabled:opacity-50"
+          >
+            {isAILoading
+              ? <><span className="animate-spin inline-block">⏳</span> Analysing… {aiProgress}%</>
+              : "✨ AI caption all photos"}
+          </button>
+
           <div>
             <label className="text-sm text-gray-600 mb-1 block">Caption for photo {selectedIdx + 1}</label>
             <input
@@ -214,21 +246,42 @@ export function PolaroidConfig({ onBack }: PolaroidConfigProps) {
       {/* Output */}
       {generatedUrls.length > 0 ? (
         <section className="space-y-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-            Your polaroids ({generatedUrls.length})
-          </p>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Your polaroids ({generatedUrls.length})
+            </p>
+            {mobile && (
+              <p className="text-xs text-gray-400">tap a photo to save individually</p>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {generatedUrls.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={url} alt={`Polaroid ${i + 1}`} className="rounded-xl shadow-md w-full" />
+              <div key={i} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Polaroid ${i + 1}`} className="rounded-xl shadow-md w-full" />
+                <button
+                  onClick={() => handleSaveOne(url, i)}
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity active:opacity-100"
+                  title={`Save polaroid ${i + 1}`}
+                >
+                  ↓
+                </button>
+                {/* Always-visible save button on mobile */}
+                <button
+                  onClick={() => handleSaveOne(url, i)}
+                  className="sm:hidden absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-sm flex items-center justify-center"
+                >
+                  ↓
+                </button>
+              </div>
             ))}
           </div>
           <div className="flex gap-3">
             <button
-              onClick={handleDownloadAll}
+              onClick={handleSaveAll}
               className="flex-1 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
             >
-              ↓ Download All ({generatedUrls.length})
+              {mobile ? `📤 Share All / Save to Photos` : `↓ Download All as ZIP`} ({generatedUrls.length})
             </button>
             <button
               onClick={() => setGeneratedUrls([])}

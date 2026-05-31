@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useUploadStore } from "@/store/upload-store"
 import { PHOTOBOOTH_PRESETS, type TemplatePreset } from "@/lib/canvas/filters"
 import { drawPhotoboothStrip } from "@/lib/canvas/draw"
+import { useAICaption } from "@/hooks/use-ai"
 import { cn } from "@/lib/utils"
 
 interface PhotoboothConfigProps {
@@ -79,6 +80,7 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
   )
   const [isGenerating, setIsGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const { generateFromPhoto, isLoading: isAILoading } = useAICaption()
 
   const template = PHOTOBOOTH_PRESETS.find((t) => t.id === templateId)!
   const displayPhotos = photos.slice(0, 4)
@@ -208,7 +210,21 @@ export function PhotoboothConfig({ onBack }: PhotoboothConfigProps) {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Customize</p>
         <div className="space-y-3">
           <div>
-            <label className="text-sm text-gray-600 mb-1 block">Caption</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm text-gray-600">Caption</label>
+              {displayPhotos[0] && (
+                <button
+                  onClick={async () => {
+                    const result = await generateFromPhoto(displayPhotos[0].previewUrl)
+                    if (result?.genZ) { setCaption(result.genZ); setPreviewUrl(null) }
+                  }}
+                  disabled={isAILoading}
+                  className="text-xs text-violet-500 hover:text-violet-700 font-medium flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isAILoading ? <><span className="animate-spin inline-block text-[10px]">⏳</span> Generating…</> : "✨ AI caption"}
+                </button>
+              )}
+            </div>
             <input
               type="text"
               value={caption}

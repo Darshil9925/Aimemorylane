@@ -12,8 +12,8 @@ export async function generateMemoryAsset(request: AIGenerationRequest) {
       const { analyzeWithOpenAI } = await import("./providers/openai")
       return analyzeWithOpenAI(request.photos)
     case "claude":
-      const { analyzeWithClaude } = await import("./providers/claude")
-      return analyzeWithClaude(request.photos)
+      const { analyzePhotosWithClaude } = await import("./providers/claude")
+      return analyzePhotosWithClaude([])
     case "replicate":
       const { generateWithReplicate } = await import("./providers/replicate")
       return generateWithReplicate("", request.options)
