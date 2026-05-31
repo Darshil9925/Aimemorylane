@@ -32,19 +32,14 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
   }
 
   const handleDownloadAll = async () => {
-    for (let i = 0; i < generatedUrls.length; i++) {
-      const a = document.createElement("a")
-      a.href = generatedUrls[i]
-      a.download = `disposable-${presetId}-${i + 1}.png`
-      a.style.display = "none"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      // Browsers block simultaneous programmatic downloads — stagger by 300ms
-      if (i < generatedUrls.length - 1) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 300))
-      }
-    }
+    const { downloadAsZip } = await import("@/lib/utils/download")
+    await downloadAsZip(
+      generatedUrls.map((url, i) => ({
+        dataUrl: url,
+        filename: `disposable-${presetId}-${i + 1}.png`,
+      })),
+      `disposable-${presetId}-${Date.now()}.zip`
+    )
   }
 
   return (
@@ -128,7 +123,7 @@ export function DisposableConfig({ onBack }: DisposableConfigProps) {
               onClick={handleDownloadAll}
               className="flex-1 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
             >
-              ↓ Download All ({generatedUrls.length})
+              ↓ Download All as ZIP ({generatedUrls.length} photos)
             </button>
             <button
               onClick={() => setGeneratedUrls([])}
