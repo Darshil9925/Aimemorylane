@@ -1,21 +1,44 @@
-import NextAuth from "next-auth"
+import NextAuth, { type NextAuthConfig } from "next-auth"
 import Google from "next-auth/providers/google"
 import Resend from "next-auth/providers/resend"
+import { UpstashRedisAdapter } from "@auth/upstash-redis-adapter"
+import { Redis } from "@upstash/redis"
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
+// Reuse the same Upstash Redis we use for rate limiting.
+// The adapter stores NextAuth users, accounts, and email verification tokens.
+// This lets email magic links work WITHOUT a Postgres database (Phase 5B).
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+const hasRedis = Boolean(redisUrl && redisToken)
+
+const redis = hasRedis
+  ? new Redis({ url: redisUrl!, token: redisToken! })
+  : null
+
+// Providers — email magic link only included when Redis is available,
+// because the email flow requires an adapter to persist verification tokens.
+const providers: NextAuthConfig["providers"] = [
+  Google({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  }),
+]
+
+if (hasRedis && process.env.RESEND_API_KEY) {
+  providers.push(
     Resend({
       apiKey: process.env.RESEND_API_KEY,
-      from: process.env.EMAIL_FROM ?? "memory@aimemorybooth.app",
-    }),
-  ],
+      from: process.env.EMAIL_FROM ?? "onboarding@resend.dev",
+    })
+  )
+}
 
-  // JWT strategy — no database needed for Phase 5A
-  // Swap to database adapter in Phase 5B
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: redis ? UpstashRedisAdapter(redis) : undefined,
+  providers,
+
+  // JWT sessions even with an adapter — OAuth stays stateless,
+  // the adapter is used only for user records + email verification tokens.
   session: { strategy: "jwt" },
 
   pages: {
@@ -26,7 +49,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user?.id) token.sub = user.id
-      // Attach subscription tier — default free
       if (!token.tier) token.tier = "free"
       return token
     },
