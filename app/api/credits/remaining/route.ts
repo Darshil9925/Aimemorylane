@@ -6,12 +6,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth()
     const userId = session?.user?.id ?? null
+    const userEmail = session?.user?.email ?? null
     // @ts-expect-error — tier extended in auth callbacks
     const isPremium = session?.user?.tier === "premium"
 
     const { guestId } = getIdentifiers(req)
 
-    const result = await getRemainingCredits({ userId, guestId, isPremium })
+    const result = await getRemainingCredits({ userId, userEmail, guestId, isPremium })
 
     return NextResponse.json({
       ...result,

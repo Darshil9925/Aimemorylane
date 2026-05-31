@@ -6,12 +6,13 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const userId = session?.user?.id ?? null
+    const userEmail = session?.user?.email ?? null
     // @ts-expect-error — tier extended in auth callbacks
     const isPremium = session?.user?.tier === "premium"
 
     const { guestId, ipHash } = getIdentifiers(req)
 
-    const result = await consumeCredit({ userId, guestId, ipHash, isPremium })
+    const result = await consumeCredit({ userId, userEmail, guestId, ipHash, isPremium })
 
     if (!result.allowed) {
       return NextResponse.json(

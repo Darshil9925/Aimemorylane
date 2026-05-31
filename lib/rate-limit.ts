@@ -22,6 +22,15 @@ import type { NextRequest } from "next/server"
 const FREE_DAILY_LIMIT = 3
 const IP_DAILY_LIMIT = 15 // ~5 people per shared IP
 
+/**
+ * Allowlisted emails that bypass rate limiting entirely (for testing / admin).
+ * Set via RATE_LIMIT_BYPASS_EMAILS env var (comma-separated) or hardcoded below.
+ */
+const BYPASS_EMAILS: Set<string> = new Set([
+  "darshil1999@gmail.com",
+  ...(process.env.RATE_LIMIT_BYPASS_EMAILS?.split(",").map((e) => e.trim()).filter(Boolean) ?? []),
+])
+
 function todayUTC(): string {
   return new Date().toISOString().slice(0, 10) // "2026-05-31"
 }
@@ -76,15 +85,16 @@ export interface RateLimitResult {
 /** Check + consume one credit. Call this BEFORE executing a generation. */
 export async function consumeCredit(options: {
   userId?: string | null
+  userEmail?: string | null
   guestId?: string | null
   ipHash?: string | null
   isPremium?: boolean
 }): Promise<RateLimitResult> {
-  const { userId, guestId, ipHash, isPremium } = options
+  const { userId, userEmail, guestId, ipHash, isPremium } = options
   const today = todayUTC()
 
-  // Premium users are never rate-limited
-  if (isPremium) {
+  // Premium users and allowlisted test accounts are never rate-limited
+  if (isPremium || (userEmail && BYPASS_EMAILS.has(userEmail.toLowerCase()))) {
     return { allowed: true, remaining: Infinity, resetAt: tomorrow() }
   }
 
@@ -134,13 +144,16 @@ export async function consumeCredit(options: {
 /** Peek at remaining credits without consuming one */
 export async function getRemainingCredits(options: {
   userId?: string | null
+  userEmail?: string | null
   guestId?: string | null
   isPremium?: boolean
 }): Promise<{ remaining: number; total: number; resetAt: string }> {
-  const { userId, guestId, isPremium } = options
+  const { userId, userEmail, guestId, isPremium } = options
   const today = todayUTC()
 
-  if (isPremium) return { remaining: Infinity, total: Infinity, resetAt: tomorrow() }
+  if (isPremium || (userEmail && BYPASS_EMAILS.has(userEmail.toLowerCase()))) {
+    return { remaining: Infinity, total: Infinity, resetAt: tomorrow() }
+  }
 
   const key = userId
     ? `mb:user:${userId}:${today}`
